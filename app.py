@@ -525,7 +525,7 @@ def aba_ralo_operacional(df: pd.DataFrame):
 
 
 # =============================================================================
-#  ABA 3 – LABORATÓRIO DE ESTRATÉGIA (A SOLUÇÃO)
+#  ABA 3 – LABORATÓRIO DE ESTRATÉGIA MARKETPLACE (A SOLUÇÃO)
 # =============================================================================
 def aba_laboratorio(df: pd.DataFrame):
     df_ap = df[df["status_pagamento"] == "Aprovado"].copy()
@@ -534,6 +534,13 @@ def aba_laboratorio(df: pd.DataFrame):
     🧪 <strong>Como usar:</strong> Ajuste os sliders abaixo para simular o impacto financeiro
     de diferentes políticas de frete grátis e teto de desconto. Os gráficos atualizam em tempo real.
     </div>""", unsafe_allow_html=True)
+
+    # ── Trava de Consistência para o Filtro Lateral ─────────────────────────
+    tem_mkp = df_ap["canal"].str.lower().str.contains("marketplace|mkp").any()
+    if not tem_mkp:
+        st.warning("⚠️ **Atenção:** Você selecionou um canal específico na barra lateral que não contém pedidos de Marketplace. "
+                   "Para simular o impacto da política de frete grátis do Marketplace, selecione **'Todos'** ou **'Marketplace'** no filtro lateral.")
+        return  # Interrompe a renderização para não exibir gráficos zerados
 
     # ── Sliders ───────────────────────────────────────────────────────────────
     col_s1, col_s2 = st.columns(2)
@@ -932,7 +939,7 @@ def main():
     tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Visão Geral",
         "🔴 Ralo Operacional",
-        "🧪 Laboratório de Estratégia",
+        "🧪 Laboratório de Estratégia Marketplace",
         "🤖 Bot",
     ])
 
