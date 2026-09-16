@@ -868,16 +868,16 @@ def main():
             help="O arquivo deve conter as colunas padrão do Case Vértice.",
         )
         st.markdown("---")
-        st.markdown("### 🔗 Google Drive *(experimental)*")
-        gdrive_url = st.text_input(
-            "URL da pasta do Google Drive",
-            placeholder="https://drive.google.com/drive/folders/...",
-            help="Cole a URL pública da pasta. Em produção, a IA faz a leitura via Google Drive API.",
-        )
-        if gdrive_url:
-            st.info("📌 Funcionalidade via API Google Drive disponível em versão Pro. "
-                    "Por ora, carregue o CSV diretamente.")
-        st.markdown("---")
+        #st.markdown("### 🔗 Google Drive *(experimental)*")
+        #gdrive_url = st.text_input(
+         #   "URL da pasta do Google Drive",
+          #  placeholder="https://drive.google.com/drive/folders/...",
+           # help="Cole a URL pública da pasta. Em produção, a IA faz a leitura via Google Drive API.",
+        #)
+        #if gdrive_url:
+         #   st.info("📌 Funcionalidade via API Google Drive disponível em versão Pro. "
+          #          "Por ora, carregue o CSV diretamente.")
+        #st.markdown("---")
         st.caption("🛡️ Dados processados localmente · Sem envio externo")
 
     # ── Carregamento de dados ─────────────────────────────────────────────────
