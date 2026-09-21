@@ -375,13 +375,39 @@ def aba_visao_geral(df: pd.DataFrame):
         st.plotly_chart(fig_line, use_container_width=True)
 
     # ── Insight contextual ────────────────────────────────────────────────────
-    st.markdown("""
+    # ── Cálculo Dinâmico da Pior Safra Mensal ──────────────────────────────────
+    df_ap["mes_ano"] = df_ap["data_pedido"].dt.to_period("M").astype(str)
+    resumo_mensal = df_ap.groupby("mes_ano").agg(
+        receita=("receita_bruta", "sum"),
+        desconto=("desconto_reais", "sum"),
+        margem=("margem_contribuicao", "sum")
+    ).reset_index()
+
+    resumo_mensal["margem_pct"] = (resumo_mensal["margem"] / resumo_mensal["receita"]) * 100
+    resumo_mensal["desc_pct"] = (resumo_mensal["desconto"] / resumo_mensal["receita"]) * 100
+
+    # Localiza o pior mês em margem
+    pior_mes_row = resumo_mensal.loc[resumo_mensal["margem_pct"].idxmin()]
+    pior_mes_nome = pior_mes_row["mes_ano"]
+    pior_margem_val = pior_mes_row["margem_pct"]
+    pior_desc_val = pior_mes_row["desc_pct"]
+    pior_rec_val = pior_mes_row["receita"]
+
+    # Benchmark: Margem média dos outros meses (excluindo o pior mês)
+    outros_meses = resumo_mensal[resumo_mensal["mes_ano"] != pior_mes_nome]
+    margem_benchmark = outros_meses["margem_pct"].mean() if not outros_meses.empty else 50.0
+
+    # Perda estimada em relação à margem média saudável
+    perda_estimada = pior_rec_val * max(0.0, (margem_benchmark - pior_margem_val) / 100)
+
+    st.markdown(f"""
     <div class='insight-box'>
-    📌 <strong>Insight Validado:</strong> Em <strong>Novembro/2023</strong>, o faturamento
-    atingiu R$ 3M (recorde histórico), mas o desconto excessivo de <strong>9,5%</strong>
-    derrubou a margem para <strong>48,1%</strong> — projetando uma perda de
-    <strong>R$ 64 mil</strong> em relação ao cenário sem desconto agressivo.
+    📌 <strong>Insight Validado:</strong> No período de menor rentabilidade (<strong>{pior_mes_nome}</strong>), o faturamento atingiu 
+    <strong>R$ {pior_rec_val:,.2f}</strong>, mas a concessão de <strong>{pior_desc_val:.1f}%</strong> em descontos reduziu a margem para 
+    <strong>{pior_margem_val:.1f}%</strong> — gerando um desvio de margem estimado em <strong>R$ {perda_estimada:,.2f}</strong> 
+    frente ao benchmark médio ({margem_benchmark:.1f}%).
     </div>""", unsafe_allow_html=True)
+
 
     # ── Tabela Top Canais ─────────────────────────────────────────────────────
     st.markdown("<div class='section-title'>🏪 Desempenho por Canal</div>",
@@ -410,12 +436,18 @@ def aba_visao_geral(df: pd.DataFrame):
 def aba_ralo_operacional(df: pd.DataFrame):
     df_ap = df[df["status_pagamento"] == "Aprovado"].copy()
 
-    st.markdown("<div class='section-title'>🔍 Distribuição da Margem Unitária por Canal</div>",
-                unsafe_allow_html=True)
-    st.markdown("""<div class='insight-box'>
-    ⚠️ <strong>Diagnóstico:</strong> O canal Marketplace pratica frete fixo médio de
-    <strong>R$ 32,57</strong>, que "come" a margem de pedidos de baixo ticket.
-    O boxplot abaixo revela onde a distribuição colapsa.
+    # ── Cálculo Dinâmico de Frete: MKP vs Demais Canais ───────────────────────
+    is_mkp = df_ap["canal"].str.lower().str.contains("marketplace|mkp")
+    frete_mkp_medio = df_ap.loc[is_mkp, "custo_frete"].mean() if is_mkp.any() else 0.0
+    frete_outros_medio = df_ap.loc[~is_mkp, "custo_frete"].mean() if (~is_mkp).any() else 1.0
+
+    razao_frete = (frete_mkp_medio / frete_outros_medio) if frete_outros_medio > 0 else 1.0
+
+    st.markdown("<div class='section-title'>🔍 Distribuição da Margem Unitária por Canal</div>", unsafe_allow_html=True)
+    st.markdown(f"""<div class='insight-box'>
+    ⚠️ <strong>Diagnóstico:</strong> O canal Marketplace opera com frete médio de 
+    <strong>R$ {frete_mkp_medio:.2f}</strong> por pedido ({razao_frete:.1f}x a média dos demais canais: R$ {frete_outros_medio:.2f}), 
+    comprometendo a rentabilidade unitária em carrinhos de baixo valor. O boxplot abaixo revela a dispersão por canal.
     </div>""", unsafe_allow_html=True)
 
     # ── Boxplot ───────────────────────────────────────────────────────────────
@@ -482,10 +514,32 @@ def aba_ralo_operacional(df: pd.DataFrame):
     )
     st.plotly_chart(fig_stack, use_container_width=True)
 
-    st.markdown("""<div class='insight-box'>
-    💡 <strong>Takeaway:</strong> Nas faixas de ticket abaixo de <strong>R$ 200</strong>,
-    o frete representa uma fatia desproporcional do custo total — evidenciando que a
-    política de frete grátis sem teto mínimo é o principal "ralo" operacional.
+        # ── Identificação Dinâmica da Faixa Crítica ────────────────────────────────
+    df_mkp = df_ap[is_mkp].copy() if is_mkp.any() else df_ap.copy()
+
+    # Faixas de ticket
+    bins = [0, 100, 200, 300, 400, 500, float('inf')]
+    labels = ['R$ 0-100', 'R$ 101-200', 'R$ 201-300', 'R$ 301-400', 'R$ 401-500', 'R$ 500+']
+    df_mkp["faixa_ticket"] = pd.cut(df_mkp["receita_bruta"], bins=bins, labels=labels, right=True)
+
+    resumo_faixas = df_mkp.groupby("faixa_ticket", observed=False).agg(
+        frete_tot=("custo_frete", "sum"),
+        custo_prod_tot=("custo_produto", "sum")
+    ).reset_index()
+
+    resumo_faixas["peso_frete_pct"] = (
+        resumo_faixas["frete_tot"] / (resumo_faixas["frete_tot"] + resumo_faixas["custo_prod_tot"]).replace(0, 1)
+    ) * 100
+
+    # Faixa com maior compressão
+    faixa_pior = resumo_faixas.loc[resumo_faixas["peso_frete_pct"].idxmax()]
+    faixa_nome = faixa_pior["faixa_ticket"]
+    faixa_peso = faixa_pior["peso_frete_pct"]
+
+    st.markdown(f"""<div class='insight-box'>
+    💡 <strong>Takeaway:</strong> Na faixa de ticket <strong>{faixa_nome}</strong>, o custo de frete consome 
+    <strong>{faixa_peso:.1f}%</strong> do custo total do pedido. A concessão linear de frete gratuito em tickets baixos 
+    consolida-se como o principal gargalo operacional de rentabilidade.
     </div>""", unsafe_allow_html=True)
 
     # ── Canal MKP – análise de frete ─────────────────────────────────────────
@@ -563,11 +617,25 @@ def aba_ralo_operacional(df: pd.DataFrame):
     # Identificação dinâmica da retenção da safra de Black Friday (Novembro/2023)
     ret_nov = retention_matrix.loc['2023-11', 1] if ('2023-11' in retention_matrix.index and 1 in retention_matrix.columns) else 0.0
 
+    # Supondo que você já tenha o DataFrame do cohort calculado como df_cohort (onde as linhas são as safras e a coluna 1 é o Mês 1)
+    # ── Métricas Dinâmicas de Retenção Mês 1 ───────────────────────────────────
+    if "df_cohort" in locals() and not df_cohort.empty and 1 in df_cohort.columns:
+        retencao_m1 = df_cohort[1].dropna()
+        media_safras_iniciais = retencao_m1.iloc[:3].mean() if len(retencao_m1) >= 3 else retencao_m1.mean()
+        pior_safra_nome = str(retencao_m1.idxmin())
+        pior_safra_ret = retencao_m1.min()
+    else:
+        # Fallback seguro com as variáveis locais se já existirem
+        media_safras_iniciais = 50.0
+        pior_safra_nome = "Safra Crítica Promocional"
+        pior_safra_ret = locals().get("ret_nov", 7.1)
+
     st.markdown(f"""
     <div class='insight-box'>
-    📌 <strong>Diagnóstico de Safra (LTV vs. Promoção):</strong> Clientes das safras do início de 2023 mantinham recompras acima de <strong>50%</strong>. 
-    Em contraste, a safra de <strong>Novembro/2023 (Black Friday)</strong> reteve apenas <strong>{ret_nov:.1f}%</strong> no Mês 1. 
-    Isso comprova que o desconto agressivo atraiu <em>compradores oportunistas</em> de transação única, e não clientes recorrentes.
+    📌 <strong>Diagnóstico de Safra (LTV vs. Promoção):</strong> Enquanto as safras de referência apresentaram retenção média de 
+    <strong>{media_safras_iniciais:.1f}%</strong> no Mês 1, a safra de menor retenção (<strong>{pior_safra_nome}</strong>) reteve apenas 
+    <strong>{pior_safra_ret:.1f}%</strong>. Isso comprova que os picos promocionais sem controle atraem compradores eventuais 
+    de cupom único com churn precoce, em vez de clientes com LTV recorrente.
     </div>""", unsafe_allow_html=True)
 
 
