@@ -308,23 +308,59 @@ def aba_visao_geral(df: pd.DataFrame):
         st.markdown("<div class='section-title'>📉 Margem de Contribuição Mensal (%)</div>",
                     unsafe_allow_html=True)
         fig_line = go.Figure()
+        
+        # 1. Linha com marcadores limpos (sem text fixo embolando)
         fig_line.add_trace(go.Scatter(
-            x=mensal["mes"], y=mensal["margem_pct"],
-            mode="lines+markers+text",
+            x=mensal["mes"], 
+            y=mensal["margem_pct"],
+            mode="lines+markers",
             line=dict(color=C_SUCCESS, width=3),
             marker=dict(size=8, color=C_SUCCESS),
-            text=[f"{v:.1f}%" for v in mensal["margem_pct"]],
-            textposition="top center",
             fill="tozeroy",
             fillcolor="rgba(56,142,60,0.08)",
             name="Margem %",
-            hovertemplate="<b>%{x}</b><br>Margem: %{y:.1f}%<extra></extra>",
+            hovertemplate="<b>%{x}</b><br>Margem: %{y:.2f}%<extra></extra>",
         ))
-        fig_line.add_hline(y=50, line_dash="dot", line_color=C_WARN,
-                           annotation_text="Meta 50%", annotation_position="right")
-        fig_line.update_layout(**PLOTLY_LAYOUT, title="",
+
+        # 2. Destaque executivo pontual na anomalia de Nov/2023 (Black Friday)
+        nov_data = mensal[mensal["mes"].str.contains("2023-11|Nov", case=False, na=False)]
+        if not nov_data.empty:
+            nov_val = nov_data["margem_pct"].values[0]
+            nov_mes = nov_data["mes"].values[0]
+            fig_line.add_annotation(
+                x=nov_mes,
+                y=nov_val,
+                text=f"<b>Mínima: {nov_val:.1f}%</b>",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=1,
+                arrowwidth=1.5,
+                arrowcolor=C_WARN,
+                ax=0,
+                ay=-35,
+                font=dict(color=C_WARN, size=11),
+                bgcolor="rgba(255, 255, 255, 0.9)",
+                bordercolor=C_WARN,
+                borderwidth=1
+            )
+
+        # 3. Linha de Meta em 50%
+        fig_line.add_hline(
+            y=50, 
+            line_dash="dot", 
+            line_color=C_WARN,
+            annotation_text="Meta 50%", 
+            annotation_position="top right"
+        )
+
+        # 4. Zoom na escala do eixo Y (40% a 60%) para evidenciar a variação
+        fig_line.update_layout(
+            **PLOTLY_LAYOUT, 
+            title="",
             xaxis_tickangle=-35,
-            yaxis_ticksuffix="%", yaxis_range=[0, 100])
+            yaxis_ticksuffix="%", 
+            yaxis_range=[40, 60]  # Foco visual na zona de decisão
+        )
         st.plotly_chart(fig_line, use_container_width=True)
 
     # ── Insight contextual ────────────────────────────────────────────────────
