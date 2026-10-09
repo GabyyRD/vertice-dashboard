@@ -9,6 +9,8 @@ Dashboard interativo desenvolvido em **Streamlit** para diagnóstico de rentabil
 
  **Notebook de Análise Exploratória:** [Google Colab](https://colab.research.google.com/drive/1cAA8d34fhxaucLPct49ZO7tVvJNGo5ja?usp=sharing)
 
+ **Pitch de 10 minutos:** [Google Slides](https://docs.google.com/presentation/d/1bWOgxBL18sKYCilYl7gL2d7hTzKScT2SD_QeCkEiU0s/present#slide=id.g3fbed0d43b4_3_2)
+
 ---
 
 ![Visão Geral do Painel](docs/screenshot_visao_geral.png)
