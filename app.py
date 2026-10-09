@@ -1,8 +1,4 @@
-# =============================================================================
 #  VÉRTICE EXECUTIVE DASHBOARD  –  app.py
-#  Desenvolvido para: Case Vértice (Varejo de Moda & Lifestyle Digital)
-#  Stack: Streamlit · Plotly · Pandas · NumPy
-# =============================================================================
 
 import streamlit as st
 import pandas as pd
@@ -13,9 +9,7 @@ from datetime import datetime, timedelta
 import io, random
 
 
-# ─────────────────────────────────────────────
 #  CONSTANTES DE IDENTIDADE VISUAL
-# ─────────────────────────────────────────────
 C_PRIMARY   = "#003366"   # Azul corporativo profundo
 C_ACCENT    = "#0057A8"   # Azul médio (hover / destaque)
 C_SUCCESS   = "#388E3C"   # Verde lucro / margem positiva
@@ -46,9 +40,7 @@ COLUNAS_ESPERADAS = [
     "status_pagamento","margem_contribuicao",
 ]
 
-# =============================================================================
 #  INJEÇÃO DE CSS CUSTOMIZADO
-# =============================================================================
 def inject_css():
     st.markdown("""
     <style>
@@ -123,9 +115,7 @@ def inject_css():
     """, unsafe_allow_html=True)
 
 
-# =============================================================================
 #  GERADOR DE DADOS DE DEMONSTRAÇÃO
-# =============================================================================
 @st.cache_data
 def gerar_demo_data() -> pd.DataFrame:
     """Gera um DataFrame sintético pequeno para demonstração visual."""
@@ -172,10 +162,7 @@ def gerar_demo_data() -> pd.DataFrame:
     })
     return df
 
-
-# =============================================================================
 #  LEITURA E VALIDAÇÃO DE CSV
-# =============================================================================
 def carregar_csv(uploaded_file, nome_display: str) -> pd.DataFrame | None:
     """Lê o CSV, valida colunas e retorna DataFrame ou None."""
     try:
@@ -219,10 +206,7 @@ def carregar_csv(uploaded_file, nome_display: str) -> pd.DataFrame | None:
 
     return df
 
-
-# =============================================================================
 #  HELPERS DE FORMATAÇÃO
-# =============================================================================
 def fmt_brl(v: float) -> str:
     """Formata em Real Brasileiro."""
     return f"R$ {v:,.2f}".replace(",","X").replace(".",",").replace("X",".")
@@ -244,10 +228,7 @@ def kpi_html(label, value, delta_str, delta_positive: bool | None = None) -> str
       <div class='{dc}'>{arrow} {delta_str}</div>
     </div>"""
 
-
-# =============================================================================
-#  ABA 1 – VISÃO GERAL (O PROBLEMA)
-# =============================================================================
+#  ABA 1 – VISÃO GERAL
 def aba_visao_geral(df: pd.DataFrame):
     st.markdown("<div class='section-title'>📊 KPIs Principais</div>",
                 unsafe_allow_html=True)
@@ -278,7 +259,7 @@ def aba_visao_geral(df: pd.DataFrame):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Gráficos mensais ──────────────────────────────────────────────────────
+    #Gráficos mensais
     df_ap["mes"] = df_ap["data_pedido"].dt.to_period("M").astype(str)
     mensal = (
         df_ap.groupby("mes")
@@ -374,8 +355,8 @@ def aba_visao_geral(df: pd.DataFrame):
         )
         st.plotly_chart(fig_line, use_container_width=True)
 
-    # ── Insight contextual ────────────────────────────────────────────────────
-    # ── Cálculo Dinâmico da Pior Safra Mensal ──────────────────────────────────
+    # Insight contextual 
+    # Cálculo Dinâmico da Pior Safra Mensal 
     df_ap["mes_ano"] = df_ap["data_pedido"].dt.to_period("M").astype(str)
     resumo_mensal = df_ap.groupby("mes_ano").agg(
         receita=("receita_bruta", "sum"),
@@ -409,7 +390,7 @@ def aba_visao_geral(df: pd.DataFrame):
     </div>""", unsafe_allow_html=True)
 
 
-    # ── Tabela Top Canais ─────────────────────────────────────────────────────
+    #Tabela Top Canais
     st.markdown("<div class='section-title'>🏪 Desempenho por Canal</div>",
                 unsafe_allow_html=True)
     canal_sum = (
@@ -429,14 +410,11 @@ def aba_visao_geral(df: pd.DataFrame):
     canal_sum.columns = ["Canal","Pedidos","Receita Bruta","Margem Total","Frete Médio","Margem %"]
     st.dataframe(canal_sum.set_index("Canal"), use_container_width=True)
 
-
-# =============================================================================
 #  ABA 2 – O RALO OPERACIONAL (A CAUSA)
-# =============================================================================
 def aba_ralo_operacional(df: pd.DataFrame):
     df_ap = df[df["status_pagamento"] == "Aprovado"].copy()
 
-    # ── Cálculo Dinâmico de Frete: MKP vs Demais Canais ───────────────────────
+    #Cálculo Dinâmico de Frete: MKP vs Demais Canais
     is_mkp = df_ap["canal"].str.lower().str.contains("marketplace|mkp")
     frete_mkp_medio = df_ap.loc[is_mkp, "custo_frete"].mean() if is_mkp.any() else 0.0
     frete_outros_medio = df_ap.loc[~is_mkp, "custo_frete"].mean() if (~is_mkp).any() else 1.0
@@ -450,7 +428,7 @@ def aba_ralo_operacional(df: pd.DataFrame):
     comprometendo a rentabilidade unitária em carrinhos de baixo valor. O boxplot abaixo revela a dispersão por canal.
     </div>""", unsafe_allow_html=True)
 
-    # ── Boxplot ───────────────────────────────────────────────────────────────
+    #Boxplot
     df_ap["margem_unit"] = df_ap["margem_contribuicao"] / df_ap["quantidade"]
     canais_ord = (df_ap.groupby("canal")["margem_unit"].median()
                        .sort_values().index.tolist())
@@ -476,7 +454,7 @@ def aba_ralo_operacional(df: pd.DataFrame):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Stacked Bar 100% – Composição de custo por faixa de ticket ───────────
+    #Stacked Bar 100% – Composição de custo por faixa de ticket
     st.markdown("<div class='section-title'>📦 Composição de Custo por Faixa de Ticket</div>",
                 unsafe_allow_html=True)
 
@@ -514,7 +492,7 @@ def aba_ralo_operacional(df: pd.DataFrame):
     )
     st.plotly_chart(fig_stack, use_container_width=True)
 
-        # ── Identificação Dinâmica da Faixa Crítica ────────────────────────────────
+        #Identificação Dinâmica da Faixa Crítica
     df_mkp = df_ap[is_mkp].copy() if is_mkp.any() else df_ap.copy()
 
     # Faixas de ticket
@@ -542,7 +520,7 @@ def aba_ralo_operacional(df: pd.DataFrame):
     consolida-se como o principal gargalo operacional de rentabilidade.
     </div>""", unsafe_allow_html=True)
 
-    # ── Canal MKP – análise de frete ─────────────────────────────────────────
+    #Canal MKP – análise de frete
     st.markdown("<div class='section-title'>🏪 Análise de Frete – Marketplace vs. Outros</div>",
                 unsafe_allow_html=True)
     df_ap["canal_bin"] = df_ap["canal"].apply(
@@ -557,7 +535,7 @@ def aba_ralo_operacional(df: pd.DataFrame):
     fr_canal["Frete Total"]  = fr_canal["Frete Total"].apply(fmt_brl)
     st.dataframe(fr_canal.set_index("Canal"), use_container_width=True)
 
-    # ── 4. Mapa de Calor de Retenção (Cohort Heatmap) ─────────────────────────
+    # 4. Mapa de Calor de Retenção
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div class='section-title'>👥 Análise de Retenção e Safra de Clientes (Cohort)</div>",
                 unsafe_allow_html=True)
@@ -614,11 +592,11 @@ def aba_ralo_operacional(df: pd.DataFrame):
     )
     st.plotly_chart(fig_cohort, use_container_width=True)
 
-    # Identificação dinâmica da retenção da safra de Black Friday (Novembro/2023)
+    # Identificação dinâmica da retenção da safra de Black Friday 
     ret_nov = retention_matrix.loc['2023-11', 1] if ('2023-11' in retention_matrix.index and 1 in retention_matrix.columns) else 0.0
 
     # Supondo que você já tenha o DataFrame do cohort calculado como df_cohort (onde as linhas são as safras e a coluna 1 é o Mês 1)
-    # ── Métricas Dinâmicas de Retenção Mês 1 ───────────────────────────────────
+    # Métricas Dinâmicas de Retenção Mês 1
     if "df_cohort" in locals() and not df_cohort.empty and 1 in df_cohort.columns:
         retencao_m1 = df_cohort[1].dropna()
         media_safras_iniciais = retencao_m1.iloc[:3].mean() if len(retencao_m1) >= 3 else retencao_m1.mean()
@@ -638,10 +616,7 @@ def aba_ralo_operacional(df: pd.DataFrame):
     de cupom único com churn precoce, em vez de clientes com LTV recorrente.
     </div>""", unsafe_allow_html=True)
 
-
-# =============================================================================
 #  ABA 3 – LABORATÓRIO DE ESTRATÉGIA MARKETPLACE (A SOLUÇÃO)
-# =============================================================================
 def aba_laboratorio(df: pd.DataFrame):
     df_ap = df[df["status_pagamento"] == "Aprovado"].copy()
 
@@ -650,14 +625,14 @@ def aba_laboratorio(df: pd.DataFrame):
     de diferentes políticas de frete grátis e teto de desconto. Os gráficos atualizam em tempo real.
     </div>""", unsafe_allow_html=True)
 
-    # ── Trava de Consistência para o Filtro Lateral ─────────────────────────
+    # Trava de Consistência para o Filtro Lateral
     tem_mkp = df_ap["canal"].str.lower().str.contains("marketplace|mkp").any()
     if not tem_mkp:
         st.warning("⚠️ **Atenção:** Você selecionou um canal específico na barra lateral que não contém pedidos de Marketplace. "
                    "Para simular o impacto da política de frete grátis do Marketplace, selecione **'Todos'** ou **'Marketplace'** no filtro lateral.")
         return  # Interrompe a renderização para não exibir gráficos zerados
 
-    # ── Sliders ───────────────────────────────────────────────────────────────
+    #Sliders
     col_s1, col_s2 = st.columns(2)
     with col_s1:
         st.markdown("<div class='slider-header'>🚚 Ticket Mínimo para Frete Grátis (R$)</div>",
@@ -676,7 +651,7 @@ def aba_laboratorio(df: pd.DataFrame):
                               label_visibility="collapsed")
         st.caption(f"Teto atual: **{teto_desc}%**  |  Referência: >9,5% em Nov/23 = -R$64k")
 
-    # ── Cálculo da Simulação ──────────────────────────────────────────────────
+    # Cálculo da Simulação
     df_sim = df_ap.copy()
 
     # Política de frete: cobra frete nos pedidos abaixo do mínimo
@@ -706,7 +681,7 @@ def aba_laboratorio(df: pd.DataFrame):
     margem_nova = margem_orig + total_ganho
     margem_nova_pct = margem_nova / df_ap["receita_bruta"].sum() * 100
 
-    # ── KPI da simulação ─────────────────────────────────────────────────────
+    # KPI da simulação
     st.markdown("<div class='section-title'>💡 Resultado Projetado da Simulação</div>",
                 unsafe_allow_html=True)
     r1, r2, r3, r4 = st.columns(4)
@@ -727,7 +702,7 @@ def aba_laboratorio(df: pd.DataFrame):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Curva de elasticidade / Break-even ───────────────────────────────────
+    #Curva de elasticidade / Break-even
     st.markdown("<div class='section-title'>📐 Curva de Equilíbrio – Ticket Mínimo de Frete Grátis</div>",
                 unsafe_allow_html=True)
 
@@ -753,7 +728,6 @@ def aba_laboratorio(df: pd.DataFrame):
         ped_perd = (df_mkp["receita_bruta"] < t).mean() * 100
         economia_liq_list.append(econ_lq)
         pedidos_perdidos_pct.append(ped_perd)
-
 
 
     fig_elast = go.Figure()
@@ -807,10 +781,7 @@ def aba_laboratorio(df: pd.DataFrame):
     <strong>{pct_pedidos_afetados:.1f}%</strong> dos pedidos do canal Marketplace.
     </div>""", unsafe_allow_html=True)
 
-
-# =============================================================================
 #  ABA 4 – Bot
-# =============================================================================
 ALERTAS_INICIAIS = [
     {
         "role": "assistant",
@@ -948,9 +919,7 @@ def aba_copiloto(df: pd.DataFrame):
             st.rerun()
 
 
-# =============================================================================
-#  LAYOUT PRINCIPAL (ENTRY POINT)
-# =============================================================================
+#  LAYOUT PRINCIPAL
 def main():
     st.set_page_config(
         page_title="Vértice | Painel Executivo",
@@ -960,7 +929,7 @@ def main():
     )
     inject_css()
 
-    # ── Header ────────────────────────────────────────────────────────────────
+    # Header
     st.markdown("""
     <div class='vertice-header'>
       <div>
@@ -969,7 +938,7 @@ def main():
       </div>
     </div>""", unsafe_allow_html=True)
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
+    # Sidebar
     with st.sidebar:
         #st.image(
            # "https://via.placeholder.com/200x60/003366/FFFFFF?text=V%C3%89RTICE",
@@ -995,7 +964,7 @@ def main():
         #st.markdown("---")
         st.caption("🛡️ Dados processados localmente · Sem envio externo")
 
-    # ── Carregamento de dados ─────────────────────────────────────────────────
+    #Carregamento de dados
     df = None
 
     if uploaded is not None:
@@ -1027,7 +996,7 @@ def main():
         else:
             st.stop()
 
-    # ── Filtro de datas na sidebar ─────────────────────────────────────────────
+    # Filtro de datas na sidebar
     with st.sidebar:
         st.markdown("### 📅 Filtro de Período")
         min_d = df["data_pedido"].min().date()
@@ -1050,7 +1019,7 @@ def main():
         if canal_sel != "Todos":
             df = df[df["canal"] == canal_sel]
 
-    # ── Abas ──────────────────────────────────────────────────────────────────
+    # Abas
     tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Visão Geral",
         "🔴 Ralo Operacional",
