@@ -7,6 +7,9 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
 import io, random
+from pathlib import Path
+
+CSV_PADRAO = Path(__file__).parent / "vendas.csv"
 
 
 #  CONSTANTES DE IDENTIDADE VISUAL
@@ -170,7 +173,8 @@ def carregar_csv(uploaded_file, nome_display: str) -> pd.DataFrame | None:
                          encoding="utf-8-sig", parse_dates=["data_pedido"])
     except UnicodeDecodeError:
         try:
-            uploaded_file.seek(0)
+            if hasattr(uploaded_file, "seek"):
+                uploaded_file.seek(0)
             df = pd.read_csv(uploaded_file, sep=None, engine="python",
                              encoding="latin-1", parse_dates=["data_pedido"])
         except Exception as e:
@@ -273,7 +277,7 @@ def aba_visao_geral(df: pd.DataFrame):
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown("<div class='section-title'>📅 Faturamento Bruto Mensal</div>",
+        st.markdown("<div class='section-title'>Faturamento Bruto Mensal</div>",
                     unsafe_allow_html=True)
         fig_bar = go.Figure()
         fig_bar.add_trace(go.Bar(
@@ -383,7 +387,7 @@ def aba_visao_geral(df: pd.DataFrame):
 
     st.markdown(f"""
     <div class='insight-box'>
-    📌 <strong>Insight Validado:</strong> No período de menor rentabilidade (<strong>{pior_mes_nome}</strong>), o faturamento atingiu 
+    <strong>Insight Validado:</strong> No período de menor rentabilidade (<strong>{pior_mes_nome}</strong>), o faturamento atingiu 
     <strong>R$ {pior_rec_val:,.2f}</strong>, mas a concessão de <strong>{pior_desc_val:.1f}%</strong> em descontos reduziu a margem para 
     <strong>{pior_margem_val:.1f}%</strong> — gerando um desvio de margem estimado em <strong>R$ {perda_estimada:,.2f}</strong> 
     frente ao benchmark médio ({margem_benchmark:.1f}%).
@@ -391,7 +395,7 @@ def aba_visao_geral(df: pd.DataFrame):
 
 
     #Tabela Top Canais
-    st.markdown("<div class='section-title'>🏪 Desempenho por Canal</div>",
+    st.markdown("<div class='section-title'>Desempenho por Canal</div>",
                 unsafe_allow_html=True)
     canal_sum = (
         df_ap.groupby("canal")
@@ -610,7 +614,7 @@ def aba_ralo_operacional(df: pd.DataFrame):
 
     st.markdown(f"""
     <div class='insight-box'>
-    📌 <strong>Diagnóstico de Safra (LTV vs. Promoção):</strong> Enquanto as safras de referência apresentaram retenção média de 
+    <strong>Diagnóstico de Safra (LTV vs. Promoção):</strong> Enquanto as safras de referência apresentaram retenção média de 
     <strong>{media_safras_iniciais:.1f}%</strong> no Mês 1, a safra de menor retenção (<strong>{pior_safra_nome}</strong>) reteve apenas 
     <strong>{pior_safra_ret:.1f}%</strong>. Isso comprova que os picos promocionais sem controle atraem compradores eventuais 
     de cupom único com churn precoce, em vez de clientes com LTV recorrente.
@@ -971,7 +975,13 @@ def main():
         df = carregar_csv(uploaded, uploaded.name)
         if df is None:
             st.stop()
-        st.sidebar.success(f"✅ Arquivo carregado: **{len(df):,}** registros")
+        st.sidebar.success(f"Arquivo carregado: **{len(df):,}** registros")
+
+    elif CSV_PADRAO.exists():
+        df = carregar_csv(str(CSV_PADRAO), CSV_PADRAO.name)
+        if df is None:
+            st.stop()
+        st.sidebar.info(f"Usando base padrão (`{CSV_PADRAO.name}`): **{len(df):,}** registros")
 
     if df is None:
         st.markdown("""
@@ -985,14 +995,14 @@ def main():
 
         col_btn = st.columns([2,1,2])[1]
         with col_btn:
-            if st.button("🚀 Carregar Dados de Demonstração", use_container_width=True,
+            if st.button("Carregar Dados de Demonstração", use_container_width=True,
                          type="primary"):
                 st.session_state["use_demo"] = True
                 st.rerun()
 
         if st.session_state.get("use_demo"):
             df = gerar_demo_data()
-            st.sidebar.success(f"✅ Demo carregada: **{len(df):,}** registros sintéticos")
+            st.sidebar.success(f"Demo carregada: **{len(df):,}** registros sintéticos")
         else:
             st.stop()
 
